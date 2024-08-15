@@ -26,8 +26,8 @@ def main():
 
     pipeline = VoiceActivityDetection(segmentation=model)
     HYPER_PARAMETERS = {
-        'min_duration_on': 0.0,
-        'min_duration_off': 0.0
+        'min_duration_on': 0.1,
+        'min_duration_off': 0.1,
     }
 
     pipeline.instantiate(HYPER_PARAMETERS)
@@ -41,26 +41,27 @@ def main():
 
     for track in speech_regions.itertracks(yield_label=True):
         segment, *rest = track
-        start_time = segment.start * 1000
-        end_time = segment.end * 1000
+        start_time = segment.start
+        end_time = segment.end
 
-        voice_segment = audio_file[start_time:end_time]
+        voice_segment = audio_file[start_time * 1000:end_time * 1000]
         mfcc_features = extract_mfcc(voice_segment)
 
         mfccs_list.append(mfcc_features)
-        segments_list.append(voice_segment)
+        # Сохраняем таймкоды
+        segments_list.append((float(f'{start_time:.2f}'),
+                              float(f'{end_time:.2f}')))
 
     if not mfccs_list:
         print("Не обнаружены сегменты речи.")
         return
 
-    # Отладка: Выводим количество извлеченных MFCC
     print(f"Количество извлеченных MFCC: {len(mfccs_list)}")
 
     mfccs_scaled = StandardScaler().fit_transform(mfccs_list)
-    clustering = DBSCAN(eps=0.5, min_samples=2).fit(mfccs_scaled)
 
-    # Отладка: Проверка на количество классов
+    clustering = DBSCAN(eps=1, min_samples=2).fit(mfccs_scaled)
+
     unique_labels = set(clustering.labels_)
     print(f"Количество уникальных меток: {len(unique_labels)}")
 
@@ -80,9 +81,11 @@ def main():
         for key, value in voices.items():
             print(f'{key}: {len(value)} сегментов')
             for segment in value[:3]:
-                print(f" - Сегмент: {segment}")  # Показываем сегменты
+                print(f" - Таймкод: {segment[0]}s - {segment[1]}s")
     else:
         print("Голоса не обнаружены.")
+
+    print(voices)
 
 
 if __name__ == '__main__':
